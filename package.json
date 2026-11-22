@@ -1,0 +1,11 @@
+{
+  "name": "control-center-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Disposable test project for the Multi-AI Control Center. Safe to change, break and reset.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
