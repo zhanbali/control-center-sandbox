@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { currentStreak, longestStreak, weeklyStreak, localDate } from "../src/streak.js";
+import { currentStreak, longestStreak, weeklyStreak, localDate, streakSummary } from "../src/streak.js";
 
 test("counts consecutive days ending today", () => {
   assert.equal(currentStreak(["2026-11-20", "2026-11-21", "2026-11-22"], "2026-11-22"), 3);
@@ -222,4 +222,43 @@ test("weeklyStreak: dates before 1970 use the correct weekday", () => {
   const c = ["1969-12-28", "1969-12-29", "1969-12-30"];
   assert.equal(weeklyStreak(c, "1969-12-31"), 0);
   assert.equal(weeklyStreak(c, "1969-12-31", { weekStartsOn: 0 }), 1);
+});
+
+test("streakSummary returns current, longest and weekly in one call", () => {
+  // Week of Mon 09 Nov has 3 days (10-12); week of Mon 16 Nov has 6 days; today is Sun 22 Nov
+  const checkIns = ["2026-11-10", "2026-11-11", "2026-11-12", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-20", "2026-11-21", "2026-11-22"];
+  const today = "2026-11-22";
+  const summary = streakSummary(checkIns, today);
+  assert.deepEqual(summary, { current: 3, longest: 3, weekly: 2 });
+  assert.equal(summary.current, currentStreak(checkIns, today));
+  assert.equal(summary.longest, longestStreak(checkIns));
+  assert.equal(summary.weekly, weeklyStreak(checkIns, today));
+});
+
+test("streakSummary with no check-ins is all zeros", () => {
+  assert.deepEqual(streakSummary([], "2026-11-22"), { current: 0, longest: 0, weekly: 0 });
+});
+
+test("streakSummary keeps the best streak after the current one lapses", () => {
+  const summary = streakSummary(["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"], "2026-11-22");
+  assert.deepEqual(summary, { current: 0, longest: 4, weekly: 0 });
+});
+
+test("streakSummary matches the individual functions across a year boundary", () => {
+  const checkIns = ["2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02", "2025-12-31"];
+  assert.deepEqual(streakSummary(checkIns, "2026-01-02"), {
+    current: currentStreak(checkIns, "2026-01-02"),
+    longest: longestStreak(checkIns),
+    weekly: weeklyStreak(checkIns, "2026-01-02"),
+  });
+  assert.equal(streakSummary(checkIns, "2026-01-02").current, 4);
+});
+
+test("streakSummary rejects bad input, even with no check-ins", () => {
+  assert.throws(() => streakSummary([], "2026-02-30"), RangeError);
+  assert.throws(() => streakSummary([], "nope"), RangeError);
+  assert.throws(() => streakSummary(["2026-13-01"], "2026-11-22"), RangeError);
+  assert.throws(() => streakSummary(["2026-11-22", "bad"], "2026-11-22"), RangeError);
+  assert.throws(() => streakSummary(null, "2026-11-22"), TypeError);
+  assert.throws(() => streakSummary("2026-11-22", "2026-11-22"), TypeError);
 });

@@ -137,3 +137,22 @@ export function weeklyStreak(checkIns, today, { minDays = 3, weekStartsOn = 1 } 
   }
   return streak;
 }
+
+/**
+ * Current streak, longest streak and weekly streak in one call, so a home screen validates and walks the history once per render.
+ * Uses the same rules as the individual functions: `weekly` uses weeklyStreak's defaults (3 days a week, weeks start on Monday),
+ * and `longest` is the longest run anywhere in the history, as in longestStreak.
+ * @param {string[]} checkIns ISO dates (YYYY-MM-DD), any order, duplicates allowed
+ * @param {string} today ISO date
+ * @returns {{current: number, longest: number, weekly: number}} current and longest in days, weekly in weeks
+ * @throws {RangeError} if today or any check-in is not a real YYYY-MM-DD date
+ * @throws {TypeError} if checkIns is not an array
+ */
+export function streakSummary(checkIns, today) {
+  if (!Array.isArray(checkIns)) throw new TypeError("checkIns must be an array of YYYY-MM-DD strings");
+  return {
+    current: currentStreak(checkIns, today),
+    longest: longestStreak(checkIns),
+    weekly: weeklyStreak(checkIns, today),
+  };
+}
