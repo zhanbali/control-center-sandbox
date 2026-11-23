@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { streakLabel } from "../src/format.js";
+import { streakLabel, bestStreakLabel } from "../src/format.js";
 
 test("labels streaks", () => {
   assert.equal(streakLabel(0), "No streak yet");
@@ -11,4 +11,16 @@ test("labels streaks", () => {
 test("rejects invalid input", () => {
   assert.throws(() => streakLabel(-1), RangeError);
   assert.throws(() => streakLabel(1.5), RangeError);
+});
+
+test("labels best streaks", () => {
+  assert.equal(bestStreakLabel(0), "No best streak yet");
+  assert.equal(bestStreakLabel(1), "Best: 1-day streak");
+  assert.equal(bestStreakLabel(5), "Best: 5-day streak");
+});
+
+test("best streak label rejects invalid input", () => {
+  assert.throws(() => bestStreakLabel(-1), RangeError);
+  assert.throws(() => bestStreakLabel(2.5), RangeError);
+  assert.throws(() => bestStreakLabel(NaN), RangeError);
 });
