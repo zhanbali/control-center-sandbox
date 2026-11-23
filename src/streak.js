@@ -3,9 +3,23 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Convert a strict YYYY-MM-DD calendar date to a day number (days since epoch, UTC).
+ * @param {string} iso strict ISO calendar date, e.g. "2024-02-29"
+ * @returns {number} day number
+ * @throws {RangeError} if iso is not a real YYYY-MM-DD calendar date
+ */
 function toDayNumber(iso) {
+  if (typeof iso !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    throw new RangeError(`Invalid date (expected YYYY-MM-DD): ${String(iso)}`);
+  }
   const [y, m, d] = iso.split("-").map(Number);
-  return Math.floor(Date.UTC(y, m - 1, d) / DAY_MS);
+  const ms = Date.UTC(y, m - 1, d);
+  // Round-trip check rejects impossible dates that Date.UTC would roll over.
+  if (new Date(ms).toISOString().slice(0, 10) !== iso) {
+    throw new RangeError(`Invalid calendar date: ${iso}`);
+  }
+  return Math.floor(ms / DAY_MS);
 }
 
 /**
