@@ -28,3 +28,22 @@ export function weeklyStreakLabel(weeks) {
   if (weeks === 0) return "No weekly streak yet";
   return `${weeks}-week streak`;
 }
+
+/**
+ * One short line for a home screen from a streakSummary result,
+ * e.g. "3-day streak · best 12 days · 2-week streak".
+ * Parts with nothing to show are left out: no weekly streak drops the last part,
+ * no streak at all gives "No streak yet", and a lapsed streak reads "No streak yet · best 5 days".
+ * @param {{current: number, longest: number, weekly: number}} summary Non-negative integers, as returned by streakSummary.
+ * @returns {string}
+ * @throws {RangeError} If summary is not an object or a field is not a non-negative integer.
+ */
+export function summaryLabel(summary) {
+  if (summary === null || typeof summary !== "object") throw new RangeError("summary must be an object");
+  const { current, longest, weekly } = summary;
+  const parts = [streakLabel(current)]; // validates current
+  if (!Number.isInteger(longest) || longest < 0) throw new RangeError("longest must be a non-negative integer");
+  if (longest > 0) parts.push(longest === 1 ? "best 1 day" : `best ${longest} days`);
+  if (weekly !== 0) parts.push(weeklyStreakLabel(weekly)); // validates weekly, drops "No weekly streak yet"
+  return parts.join(" · ");
+}

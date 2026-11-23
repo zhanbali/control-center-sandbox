@@ -4,18 +4,23 @@ A small, disposable project used to test the Multi-AI Control Center end to end:
 
 Nothing here is production code, and nothing here holds secrets. Feel free to break it.
 
-- `src/streak.js`: habit streak calculations (`currentStreak`, `longestStreak`, `weeklyStreak`: consecutive weeks with at least N check-in days, default 3, weeks start on Monday; `localDate`: the user's local YYYY-MM-DD for an instant and IANA zone)
-- `src/format.js`: labels for streaks (`streakLabel`, `bestStreakLabel`, `weeklyStreakLabel`)
+- `src/streak.js`: habit streak calculations (`currentStreak`, `longestStreak`, `weeklyStreak`: consecutive weeks with at least N check-in days, default 3, weeks start on Monday; `localDate`: the user's local YYYY-MM-DD for an instant and IANA zone; `streakSummary`: current, longest and weekly streak in one call)
+- `src/format.js`: labels for streaks (`streakLabel`, `bestStreakLabel`, `weeklyStreakLabel`, `summaryLabel`: one short line for a home screen)
 - `npm test`: runs the tests with Node's built-in test runner (no dependencies)
 
 ## Usage
 
 ```js
-import { streakLabel, bestStreakLabel, weeklyStreakLabel } from "./src/format.js";
+import { streakLabel, bestStreakLabel, weeklyStreakLabel, summaryLabel } from "./src/format.js";
+import { streakSummary } from "./src/streak.js";
 
 streakLabel(3);       // "3-day streak"
 bestStreakLabel(12);  // "Best streak: 12 days"
 weeklyStreakLabel(4); // "4-week streak"
+
+const summary = streakSummary(checkIns, today); // { current: 3, longest: 12, weekly: 2 }
+summaryLabel(summary); // "3-day streak · best 12 days · 2-week streak"
+// Parts with nothing to show are left out: "No streak yet · best 5 days", or just "No streak yet".
 ```
 
 ## Dates: the user's local date, frozen at check-in
