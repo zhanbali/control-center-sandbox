@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { currentStreak, longestStreak, weeklyStreak } from "../src/streak.js";
+import { currentStreak, longestStreak, weeklyStreak, pruneCheckIns } from "../src/streak.js";
 
 test("counts consecutive days ending today", () => {
   assert.equal(currentStreak(["2026-11-20", "2026-11-21", "2026-11-22"], "2026-11-22"), 3);
@@ -55,6 +55,22 @@ for (const bad of BAD_DATES) {
   test(`weeklyStreak rejects bad today ${JSON.stringify(bad)}`, () => {
     assert.throws(
       () => weeklyStreak(["2026-03-01"], bad),
+      (e) => e instanceof RangeError && e.message.includes(bad),
+    );
+  });
+
+  test(`pruneCheckIns rejects bad check-in ${JSON.stringify(bad)}, even one older than the cutoff`, () => {
+    for (const checkIns of [[bad], ["2026-03-01", bad], ["2020-01-01", bad, "2026-03-01"]]) {
+      assert.throws(
+        () => pruneCheckIns(checkIns, "2026-03-02", 0),
+        (e) => e instanceof RangeError && e.message.includes(bad),
+      );
+    }
+  });
+
+  test(`pruneCheckIns rejects bad today ${JSON.stringify(bad)}`, () => {
+    assert.throws(
+      () => pruneCheckIns(["2026-03-01"], bad, 7),
       (e) => e instanceof RangeError && e.message.includes(bad),
     );
   });
@@ -143,4 +159,160 @@ test("weeklyStreak: dates before 1970 use the correct weekday", () => {
   const c = ["1969-12-28", "1969-12-29", "1969-12-30"];
   assert.equal(weeklyStreak(c, "1969-12-31"), 0);
   assert.equal(weeklyStreak(c, "1969-12-31", { weekStartsOn: 0 }), 1);
+});
+
+// pruneCheckIns: retention trimming that never touches the current or the most recent longest streak.
+const TODAY = "2026-11-22";
+
+/** ISO date n days after iso (n may be negative). */
+function addDays(iso, n) {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+}
+
+test("pruneCheckIns returns a new array and leaves the input unchanged", () => {
+  for (const input of [
+    ["2026-01-01", "2026-11-21", "2026-11-22"], // something is dropped
+    ["2026-11-21", "2026-11-22"], // nothing is dropped
+  ]) {
+    const before = [...input];
+    const out = pruneCheckIns(input, TODAY, 7);
+    assert.notEqual(out, input);
+    assert.deepEqual(input, before);
+  }
+  assert.deepEqual(pruneCheckIns(["2026-01-01", "2026-11-21", "2026-11-22"], TODAY, 7), ["2026-11-21", "2026-11-22"]);
+});
+
+test("pruneCheckIns: an empty input gives a new empty array", () => {
+  const input = [];
+  const out = pruneCheckIns(input, TODAY, 7);
+  assert.deepEqual(out, []);
+  assert.notEqual(out, input);
+});
+
+test("pruneCheckIns: the day exactly keepDays before today is kept, the day before it is dropped", () => {
+  // The 3-day current streak is the longest, so 11-14/11-15 are not protected.
+  const c = ["2026-11-14", "2026-11-15", "2026-11-20", "2026-11-21", "2026-11-22"];
+  assert.deepEqual(pruneCheckIns(c, TODAY, 7), ["2026-11-15", "2026-11-20", "2026-11-21", "2026-11-22"]);
+});
+
+test("pruneCheckIns: keepDays 0 keeps today and later, plus protected days", () => {
+  const c = ["2026-11-10", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-22", "2026-11-25"];
+  // Longest run 11-18..11-20 is protected; today has no yesterday so the current streak is just today.
+  assert.deepEqual(pruneCheckIns(c, TODAY, 0), ["2026-11-18", "2026-11-19", "2026-11-20", "2026-11-22", "2026-11-25"]);
+  // Without the protected run, only today and the future remain.
+  assert.deepEqual(pruneCheckIns(["2026-11-10", "2026-11-20", "2026-11-22", "2026-11-25"], TODAY, 0), ["2026-11-22", "2026-11-25"]);
+});
+
+test("pruneCheckIns keeps every day of a current streak ending today", () => {
+  const streak = Array.from({ length: 10 }, (_, i) => addDays(TODAY, -i));
+  const c = ["2026-01-05", ...streak, "2026-03-03"];
+  assert.deepEqual(pruneCheckIns(c, TODAY, 3), streak);
+});
+
+test("pruneCheckIns keeps a current streak ending yesterday when today is missing", () => {
+  const streak = Array.from({ length: 10 }, (_, i) => addDays(TODAY, -1 - i));
+  const c = ["2026-01-05", ...streak];
+  const out = pruneCheckIns(c, TODAY, 3);
+  assert.deepEqual(out, streak);
+  assert.equal(currentStreak(out, TODAY), 10);
+});
+
+test("pruneCheckIns keeps an old longest streak and drops isolated old days", () => {
+  const run = ["2026-01-10", "2026-01-11", "2026-01-12", "2026-01-13"];
+  const c = ["2026-01-02", ...run, "2026-02-20", "2026-06-01", "2026-11-21", "2026-11-22"];
+  const out = pruneCheckIns(c, TODAY, 7);
+  assert.deepEqual(out, [...run, "2026-11-21", "2026-11-22"]);
+  assert.equal(longestStreak(out), longestStreak(c));
+  assert.equal(currentStreak(out, TODAY), currentStreak(c, TODAY));
+});
+
+test("pruneCheckIns: when longest runs tie, only the most recent one is protected", () => {
+  const older = ["2026-01-10", "2026-01-11", "2026-01-12"];
+  const newer = ["2026-05-01", "2026-05-02", "2026-05-03"];
+  const out = pruneCheckIns([...older, ...newer, "2026-11-22"], TODAY, 7);
+  assert.deepEqual(out, [...newer, "2026-11-22"]);
+  assert.equal(longestStreak(out), 3);
+  // A history with no two consecutive days (longest streak 1) is still pruned.
+  const everyOtherDay = Array.from({ length: 183 }, (_, i) => addDays(TODAY, -2 * i));
+  assert.equal(pruneCheckIns(everyOtherDay, TODAY, 30).length, 16);
+});
+
+test("pruneCheckIns preserves order and duplicates of kept days", () => {
+  const c = ["2026-11-22", "2026-01-05", "2026-11-22", "2026-11-21", "2026-01-05", "2026-11-21"];
+  assert.deepEqual(pruneCheckIns(c, TODAY, 3), ["2026-11-22", "2026-11-22", "2026-11-21", "2026-11-21"]);
+});
+
+test("pruneCheckIns always keeps future-dated check-ins", () => {
+  assert.deepEqual(pruneCheckIns(["2026-11-01", "2027-03-01", "2026-12-25"], TODAY, 0), ["2027-03-01", "2026-12-25"]);
+});
+
+test("pruneCheckIns does not protect weeklyStreak", () => {
+  // Mon/Tue/Thu for 10 weeks ending the week of 2026-11-16, plus an older 4-day run.
+  const weekly = [];
+  for (let w = 0; w < 10; w++) for (const d of [0, 1, 3]) weekly.push(addDays("2026-11-16", d - 7 * w));
+  const c = ["2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08", ...weekly];
+  const out = pruneCheckIns(c, TODAY, 7);
+  assert.equal(weeklyStreak(c, TODAY), 10);
+  assert.equal(weeklyStreak(out, TODAY), 1); // documented limitation
+  assert.equal(longestStreak(out), longestStreak(c));
+  assert.equal(currentStreak(out, TODAY), currentStreak(c, TODAY));
+});
+
+test("pruneCheckIns rejects invalid keepDays with RangeError", () => {
+  for (const keepDays of [-1, 1.5, NaN, Infinity, -Infinity, "7", null, undefined, Symbol("k")]) {
+    assert.throws(() => pruneCheckIns(["2026-11-22"], TODAY, keepDays), RangeError, String(keepDays));
+  }
+  assert.throws(() => pruneCheckIns(["2026-11-22"], TODAY, -1), /keepDays must be a non-negative integer: -1/);
+});
+
+test("pruneCheckIns rejects a non-array checkIns with TypeError and a sparse array with RangeError", () => {
+  for (const checkIns of [null, undefined, "2026-11-22", { length: 1, 0: "2026-11-22" }]) {
+    assert.throws(() => pruneCheckIns(checkIns, TODAY, 7), TypeError);
+  }
+  // eslint-disable-next-line no-sparse-arrays
+  assert.throws(() => pruneCheckIns(["2026-11-22", , "2026-11-21"], TODAY, 7), RangeError);
+});
+
+/**
+ * Reference definition, written independently of the implementation: an entry is kept iff its day
+ * is on or after today - keepDays, or it is in the current streak, or in the most recent longest run.
+ */
+function referencePrune(checkIns, today, keepDays) {
+  const day = (iso) => Date.parse(`${iso}T00:00:00Z`) / 86400000;
+  const set = new Set(checkIns.map(day));
+  const t = day(today);
+  const keep = new Set();
+  let cur = set.has(t) ? t : t - 1;
+  while (set.has(cur)) keep.add(cur--);
+  let bestStart = null;
+  let bestLen = 0;
+  for (const d of set) {
+    if (set.has(d - 1)) continue; // not a run start
+    let len = 1;
+    while (set.has(d + len)) len++;
+    if (len > bestLen || (len === bestLen && d > bestStart)) [bestStart, bestLen] = [d, len];
+  }
+  for (let i = 0; i < bestLen; i++) keep.add(bestStart + i);
+  return checkIns.filter((iso) => day(iso) >= t - keepDays || keep.has(day(iso)));
+}
+
+test("pruneCheckIns matches the definition and keeps both streaks on every subset of a 12-day window", () => {
+  // 2026-11-13 .. 2026-11-24 around today 2026-11-22 (two future days), keepDays 0..12: 53,248 cases.
+  const window = Array.from({ length: 12 }, (_, i) => addDays("2026-11-13", i));
+  let cases = 0;
+  for (let mask = 0; mask < 1 << window.length; mask++) {
+    const c = window.filter((_, i) => mask & (1 << i));
+    const cs = currentStreak(c, TODAY);
+    const ls = longestStreak(c);
+    for (let keepDays = 0; keepDays <= 12; keepDays++) {
+      const out = pruneCheckIns(c, TODAY, keepDays);
+      const ctx = `${JSON.stringify(c)} keepDays=${keepDays}`;
+      assert.deepEqual(out, referencePrune(c, TODAY, keepDays), ctx);
+      assert.equal(currentStreak(out, TODAY), cs, ctx);
+      assert.equal(longestStreak(out), ls, ctx);
+      assert.deepEqual(pruneCheckIns(out, TODAY, keepDays), out, `idempotent: ${ctx}`);
+      cases++;
+    }
+  }
+  assert.equal(cases, 53248);
 });

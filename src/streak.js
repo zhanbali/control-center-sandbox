@@ -99,3 +99,74 @@ export function weeklyStreak(checkIns, today, { minDays = 3, weekStartsOn = 1 } 
   }
   return streak;
 }
+
+/**
+ * The most recent run of maximum length among the given day numbers.
+ * @param {number[]} dayNums day numbers, any order, duplicates allowed
+ * @returns {{start: number, end: number} | null} inclusive range, or null when empty
+ */
+function latestLongestRun(dayNums) {
+  const days = [...new Set(dayNums)].sort((a, b) => a - b);
+  let best = null;
+  let start = 0;
+  for (let i = 0; i < days.length; i++) {
+    if (i === 0 || days[i] !== days[i - 1] + 1) start = days[i];
+    // ">=" so a later run of equal length replaces an earlier one.
+    if (best === null || days[i] - start >= best.end - best.start) best = { start, end: days[i] };
+  }
+  return best;
+}
+
+/**
+ * Day range of the current streak, derived from currentStreak itself so the two never disagree.
+ * @param {string[]} checkIns ISO dates
+ * @param {Set<number>} daySet day numbers of checkIns
+ * @param {number} todayNum day number of today
+ * @param {string} today ISO date
+ * @returns {{start: number, end: number} | null} inclusive range, or null when there is no streak
+ */
+function currentStreakRange(checkIns, daySet, todayNum, today) {
+  const length = currentStreak(checkIns, today);
+  if (length === 0) return null;
+  const end = daySet.has(todayNum) ? todayNum : todayNum - 1;
+  return { start: end - length + 1, end };
+}
+
+/**
+ * Retention trimming: returns a new array without the check-ins older than keepDays before today,
+ * except check-ins in the current streak or in the most recent longest streak, which are always kept.
+ *
+ * - A check-in is old when its day is strictly before today - keepDays; the day exactly keepDays
+ *   before today is kept, and keepDays 0 keeps today and later. Future-dated check-ins are never old.
+ * - currentStreak(result, today) and longestStreak(result) equal the values for the input.
+ *   When several runs tie for the longest, only the most recent one is protected.
+ * - weeklyStreak is NOT protected and can drop after pruning.
+ * - This is not erasure: no keepDays empties a history with a streak, an old longest run is kept
+ *   indefinitely, and current-streak days become prunable once the streak breaks. Do not use it
+ *   to delete all of a user's data.
+ * - today must be in the same local calendar as the check-ins; a wrong or UTC-derived today
+ *   deletes data early. The function is pure: keep the original until the result is saved.
+ * - Input order and duplicates of kept days are preserved; the input is never mutated.
+ * - One invalid entry makes the whole call throw (even if it would have been dropped), so a caller
+ *   that swallows the error never prunes anything.
+ * @param {string[]} checkIns ISO dates (YYYY-MM-DD), any order, duplicates allowed; holes count as invalid
+ * @param {string} today ISO date
+ * @param {number} keepDays non-negative integer number of days to keep before today
+ * @returns {string[]} new array of the kept check-ins
+ * @throws {TypeError} if checkIns is not an array
+ * @throws {RangeError} on an invalid date or a keepDays that is not a non-negative integer
+ */
+export function pruneCheckIns(checkIns, today, keepDays) {
+  if (!Array.isArray(checkIns)) {
+    throw new TypeError(`checkIns must be an array: ${String(checkIns)}`);
+  }
+  if (!Number.isInteger(keepDays) || keepDays < 0) {
+    throw new RangeError(`keepDays must be a non-negative integer: ${String(keepDays)}`);
+  }
+  const todayNum = toDayNumber(today);
+  const dayNums = Array.from(checkIns, toDayNumber); // validates every entry; holes become undefined and throw
+  const cutoff = todayNum - keepDays;
+  const ranges = [currentStreakRange(checkIns, new Set(dayNums), todayNum, today), latestLongestRun(dayNums)];
+  const isProtected = (d) => ranges.some((r) => r !== null && d >= r.start && d <= r.end);
+  return checkIns.filter((_, i) => dayNums[i] >= cutoff || isProtected(dayNums[i]));
+}
