@@ -1,3 +1,5 @@
+import { nextMilestone } from "./streak.js";
+
 /** Human-readable streak label, e.g. "3-day streak" or "No streak yet". */
 export function streakLabel(days) {
   if (!Number.isInteger(days) || days < 0) throw new RangeError("days must be a non-negative integer");
@@ -46,4 +48,18 @@ export function summaryLabel(summary) {
   if (longest > 0) parts.push(longest === 1 ? "best 1 day" : `best ${longest} days`);
   if (weekly !== 0) parts.push(weeklyStreakLabel(weekly)); // validates weekly, drops "No weekly streak yet"
   return parts.join(" · ");
+}
+
+/**
+ * Progress towards the next streak milestone,
+ * e.g. "2 days to your 7-day milestone" or "All milestones reached".
+ * @param {number} days Current streak length, a non-negative integer.
+ * @returns {string}
+ * @throws {RangeError} If days is not a non-negative integer.
+ */
+export function milestoneLabel(days) {
+  const next = nextMilestone(days); // validates days
+  if (next === null) return "All milestones reached";
+  const left = next - days;
+  return `${left} ${left === 1 ? "day" : "days"} to your ${next}-day milestone`;
 }

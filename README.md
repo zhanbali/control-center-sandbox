@@ -11,7 +11,7 @@ Nothing here is production code, and nothing here holds secrets. Feel free to br
 ## Usage
 
 ```js
-import { streakLabel, bestStreakLabel, weeklyStreakLabel, summaryLabel } from "./src/format.js";
+import { streakLabel, bestStreakLabel, weeklyStreakLabel, summaryLabel, milestoneLabel } from "./src/format.js";
 import { streakSummary } from "./src/streak.js";
 
 streakLabel(3);       // "3-day streak"
@@ -21,6 +21,10 @@ weeklyStreakLabel(4); // "4-week streak"
 const summary = streakSummary(checkIns, today); // { current: 3, longest: 12, weekly: 2 }
 summaryLabel(summary); // "3-day streak · best 12 days · 2-week streak"
 // Parts with nothing to show are left out: "No streak yet · best 5 days", or just "No streak yet".
+
+milestoneLabel(5);   // "2 days to your 7-day milestone"
+milestoneLabel(365); // "All milestones reached"
+// nextMilestone(days) from ./src/streak.js gives the number itself: 7, or null after 365.
 ```
 
 ## Dates: the user's local date, frozen at check-in
