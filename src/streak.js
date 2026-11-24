@@ -156,3 +156,16 @@ export function streakSummary(checkIns, today) {
     weekly: weeklyStreak(checkIns, today),
   };
 }
+
+const MILESTONES = [3, 7, 14, 30, 60, 100, 365];
+
+/**
+ * The next streak milestone strictly above `days`, from 3, 7, 14, 30, 60, 100 and 365.
+ * @param {number} days Current streak length, a non-negative integer.
+ * @returns {number|null} The next milestone, or null once 365 or more is reached.
+ * @throws {RangeError} If days is not a non-negative integer.
+ */
+export function nextMilestone(days) {
+  if (!Number.isInteger(days) || days < 0) throw new RangeError("days must be a non-negative integer");
+  return MILESTONES.find((m) => m > days) ?? null;
+}

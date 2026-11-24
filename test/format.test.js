@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { streakLabel, bestStreakLabel, weeklyStreakLabel, summaryLabel } from "../src/format.js";
+import { streakLabel, bestStreakLabel, weeklyStreakLabel, summaryLabel, milestoneLabel } from "../src/format.js";
+import { nextMilestone } from "../src/streak.js";
 
 test("labels streaks", () => {
   assert.equal(streakLabel(0), "No streak yet");
@@ -61,4 +62,33 @@ test("summaryLabel rejects invalid input", () => {
   assert.throws(() => summaryLabel({ current: 1, longest: "1", weekly: 0 }), RangeError);
   assert.throws(() => summaryLabel({ current: 1, longest: 1, weekly: -2 }), RangeError);
   assert.throws(() => summaryLabel({ current: 1, longest: 1, weekly: undefined }), RangeError);
+});
+
+test("milestoneLabel shows days left to the next milestone", () => {
+  assert.equal(milestoneLabel(5), "2 days to your 7-day milestone");
+  assert.equal(milestoneLabel(0), "3 days to your 3-day milestone");
+  assert.equal(milestoneLabel(6), "1 day to your 7-day milestone");
+  assert.equal(milestoneLabel(3), "4 days to your 7-day milestone");
+  assert.equal(milestoneLabel(364), "1 day to your 365-day milestone");
+  assert.equal(milestoneLabel(100), "265 days to your 365-day milestone");
+});
+
+test("milestoneLabel says all milestones reached from 365", () => {
+  assert.equal(milestoneLabel(365), "All milestones reached");
+  assert.equal(milestoneLabel(1000), "All milestones reached");
+});
+
+test("milestoneLabel agrees with nextMilestone for every length up to 400", () => {
+  for (let d = 0; d <= 400; d++) {
+    const next = nextMilestone(d);
+    const label = milestoneLabel(d);
+    if (next === null) assert.equal(label, "All milestones reached");
+    else assert.ok(label.endsWith(`to your ${next}-day milestone`) && label.startsWith(`${next - d} day`), `d=${d}: ${label}`);
+  }
+});
+
+test("milestoneLabel rejects invalid input", () => {
+  for (const bad of [-1, 1.5, NaN, Infinity, "3", null, undefined]) {
+    assert.throws(() => milestoneLabel(bad), RangeError, String(bad));
+  }
 });

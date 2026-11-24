@@ -262,3 +262,22 @@ test("streakSummary rejects bad input, even with no check-ins", () => {
   assert.throws(() => streakSummary(null, "2026-11-22"), TypeError);
   assert.throws(() => streakSummary("2026-11-22", "2026-11-22"), TypeError);
 });
+
+import { nextMilestone } from "../src/streak.js";
+
+test("nextMilestone returns the next milestone strictly above days", () => {
+  const cases = [[0, 3], [1, 3], [2, 3], [3, 7], [6, 7], [7, 14], [13, 14], [14, 30], [29, 30], [30, 60], [59, 60], [60, 100], [99, 100], [100, 365], [364, 365]];
+  for (const [days, expected] of cases) assert.equal(nextMilestone(days), expected, `days=${days}`);
+});
+
+test("nextMilestone returns null at and after 365", () => {
+  assert.equal(nextMilestone(365), null);
+  assert.equal(nextMilestone(366), null);
+  assert.equal(nextMilestone(100000), null);
+});
+
+test("nextMilestone rejects invalid input", () => {
+  for (const bad of [-1, 1.5, NaN, Infinity, "3", null, undefined, {}]) {
+    assert.throws(() => nextMilestone(bad), RangeError, String(bad));
+  }
+});
