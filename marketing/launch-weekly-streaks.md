@@ -12,7 +12,7 @@ Daily streaks are simple, but real life is not. Someone misses a Sunday and the 
 Weekly streaks are here. Count consecutive weeks with at least 3 check-in days (change the number, and the first day of the week, if you like). The current week only counts once it is met, so a slow Wednesday does not end last week's streak.
 
 **Streak summary**
-One call, three numbers: `streakSummary` gives you the current streak, the longest streak and the weekly streak (using the default rule: 3 days, weeks start on Monday; for your own rule, call `weeklyStreak` with options). `summaryLabel` turns them into one line for your home screen, like "3-day streak · best 12 days · 2-week streak".
+One call, three numbers: `streakSummary` gives the current, longest and weekly streak (default rule: 3 days, weeks start Monday; for your own rule, use `weeklyStreak`). `summaryLabel` turns them into one home-screen line, like "3-day streak · best 12 days · 2-week streak".
 
 **Milestones**
 `nextMilestone` finds the next target from 3, 7, 14, 30, 60, 100 and 365 days. `milestoneLabel` says it for you: "2 days to your 7-day milestone". At 365 days it says "All milestones reached".
@@ -28,5 +28,5 @@ One call, three numbers: `streakSummary` gives you the current streak, the longe
 | One-line home-screen label, e.g. "3-day streak · best 12 days · 2-week streak" | `summaryLabel`, `src/format.js` (the example is in its JSDoc and the README) |
 | Milestones 3, 7, 14, 30, 60, 100, 365 | `MILESTONES` in `src/streak.js` |
 | "2 days to your 7-day milestone"; "All milestones reached" at 365 or more | `milestoneLabel`, `src/format.js`; `nextMilestone` returns `null` at 365 or more |
-| Streak functions take YYYY-MM-DD strings (milestone and label helpers take numbers); no dependencies | `toDayNumber` rejects other formats; `nextMilestone`, `milestoneLabel`, `summaryLabel` take numbers; `package.json` has no dependencies |
+| Streak functions take YYYY-MM-DD strings (milestone helpers take numbers; `summaryLabel` takes the summary object); no dependencies | `toDayNumber` rejects other formats; `nextMilestone`, `milestoneLabel` take numbers; `summaryLabel(summary)` takes the `{ current, longest, weekly }` object (`src/format.js:43-45`); `package.json` has no dependencies |
 | "Misses a Sunday and the number drops to zero" (daily streak) | `currentStreak`: a streak with neither today nor yesterday checked in is 0 |
