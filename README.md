@@ -4,7 +4,7 @@ A small, disposable project used to test the Multi-AI Control Center end to end:
 
 Nothing here is production code, and nothing here holds secrets. Feel free to break it.
 
-- `src/streak.js`: habit streak calculations (`currentStreak`, `longestStreak`, `weeklyStreak`: consecutive weeks with at least N check-in days, default 3, weeks start on Monday; `localDate`: the user's local YYYY-MM-DD for an instant and IANA zone; `streakSummary`: current, longest and weekly streak in one call)
+- `src/streak.js`: habit streak calculations (`currentStreak`, `longestStreak`, `weeklyStreak`: consecutive weeks with at least N check-in days, default 3, weeks start on Monday; `localDate`: the user's local YYYY-MM-DD for an instant and IANA zone; `streakSummary`: current, longest and weekly streak in one call; `daysToBeatBest(checkIns, today)`: check-in days still needed to beat the longest streak, never below 1)
 - `src/format.js`: labels for streaks (`streakLabel`, `bestStreakLabel`, `weeklyStreakLabel`, `summaryLabel`: one short line for a home screen)
 - `npm test`: runs the tests with Node's built-in test runner (no dependencies)
 
