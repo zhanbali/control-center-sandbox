@@ -263,7 +263,7 @@ test("streakSummary rejects bad input, even with no check-ins", () => {
   assert.throws(() => streakSummary("2026-11-22", "2026-11-22"), TypeError);
 });
 
-import { nextMilestone } from "../src/streak.js";
+import { nextMilestone, daysToBeatBest } from "../src/streak.js";
 
 test("nextMilestone returns the next milestone strictly above days", () => {
   const cases = [[0, 3], [1, 3], [2, 3], [3, 7], [6, 7], [7, 14], [13, 14], [14, 30], [29, 30], [30, 60], [59, 60], [60, 100], [99, 100], [100, 365], [364, 365]];
@@ -279,5 +279,103 @@ test("nextMilestone returns null at and after 365", () => {
 test("nextMilestone rejects invalid input", () => {
   for (const bad of [-1, 1.5, NaN, Infinity, "3", null, undefined, {}]) {
     assert.throws(() => nextMilestone(bad), RangeError, String(bad));
+  }
+});
+
+// --- daysToBeatBest ---
+
+/** @param {string} start @param {number} n n consecutive ISO dates from start (UTC arithmetic) */
+function run(start, n) {
+  const out = [];
+  const t = Date.parse(`${start}T00:00:00Z`);
+  for (let i = 0; i < n; i++) out.push(new Date(t + i * 86400000).toISOString().slice(0, 10));
+  return out;
+}
+
+test("daysToBeatBest is 1 with no check-ins", () => {
+  assert.equal(daysToBeatBest([], "2026-11-22"), 1);
+});
+
+test("daysToBeatBest after a lapsed streak is longest + 1", () => {
+  assert.equal(daysToBeatBest(run("2026-11-01", 5), "2026-11-22"), 6);
+});
+
+test("daysToBeatBest when current is shorter than best", () => {
+  const checkIns = [...run("2026-10-01", 5), ...run("2026-11-20", 3)];
+  assert.equal(daysToBeatBest(checkIns, "2026-11-22"), 3);
+});
+
+test("daysToBeatBest is 1 when current equals best", () => {
+  const checkIns = [...run("2026-10-01", 3), ...run("2026-11-20", 3)];
+  assert.equal(daysToBeatBest(checkIns, "2026-11-22"), 1);
+  // the current run is itself the best run
+  assert.equal(daysToBeatBest(run("2026-11-18", 5), "2026-11-22"), 1);
+});
+
+test("daysToBeatBest counts a streak still alive from yesterday", () => {
+  const checkIns = [...run("2026-10-01", 5), ...run("2026-11-20", 2)]; // last check-in 21st, today is 22nd
+  assert.equal(currentStreak(checkIns, "2026-11-22"), 2);
+  assert.equal(daysToBeatBest(checkIns, "2026-11-22"), 4);
+});
+
+test("daysToBeatBest works across month, year and leap-day boundaries", () => {
+  assert.equal(daysToBeatBest([...run("2026-10-01", 4), "2026-10-31", "2026-11-01"], "2026-11-01"), 3);
+  assert.equal(daysToBeatBest([...run("2026-06-01", 4), "2026-12-31", "2027-01-01"], "2027-01-01"), 3);
+  assert.equal(daysToBeatBest([...run("2026-06-01", 4), "2028-02-28", "2028-02-29"], "2028-02-29"), 3);
+  assert.equal(daysToBeatBest([...run("2026-06-01", 3), "2028-02-28", "2028-02-29", "2028-03-01"], "2028-03-01"), 1);
+  // no leap day in 2027: 28 Feb then 1 Mar are consecutive
+  assert.equal(daysToBeatBest(["2027-02-28", "2027-03-01"], "2027-03-01"), 1);
+});
+
+test("daysToBeatBest rejects non-arrays with TypeError", () => {
+  for (const bad of [null, undefined, "2026-11-22", {}, 5]) {
+    assert.throws(() => daysToBeatBest(bad, "2026-11-22"), TypeError, String(bad));
+  }
+});
+
+test("daysToBeatBest rejects bad dates with RangeError naming the value", () => {
+  const cases = [
+    () => daysToBeatBest(["2026-11-22", "2026-02-30"], "2026-11-22"),
+    () => daysToBeatBest(["nope"], "2026-11-22"),
+    () => daysToBeatBest(["2026-13-01"], "2026-11-22"),
+    () => daysToBeatBest(["2027-02-29"], "2027-03-01"),
+    () => daysToBeatBest([], "2026-02-30"),
+    () => daysToBeatBest(["2026-11-22"], "22/11/2026"),
+  ];
+  const bads = ["2026-02-30", "nope", "2026-13-01", "2027-02-29", "2026-02-30", "22/11/2026"];
+  cases.forEach((fn, i) => {
+    assert.throws(fn, (e) => e instanceof RangeError && e.message.includes(bads[i]), bads[i]);
+  });
+});
+
+test("checking in daysToBeatBest consecutive days from today beats the old best", () => {
+  const histories = [
+    [],
+    run("2026-11-01", 5),
+    [...run("2026-10-01", 5), ...run("2026-11-20", 3)],
+    [...run("2026-10-01", 3), ...run("2026-11-20", 3)],
+    [...run("2026-10-01", 5), ...run("2026-11-20", 2)],
+    run("2026-11-18", 5),
+    ["2026-12-30", "2026-12-31"],
+    ["2026-11-22"],
+    [...run("2026-12-20", 10), "2027-01-01"],
+    ["2028-02-27", "2028-02-28"],
+  ];
+  for (const checkIns of histories) {
+    for (const today of ["2026-11-22", "2027-01-01", "2028-02-29"]) {
+      // check-ins dated after today are outside the property: longestStreak counts them, currentStreak never reaches them
+      if (checkIns.some((d) => d > today)) continue;
+      const need = daysToBeatBest(checkIns, today);
+      assert.ok(Number.isInteger(need) && need >= 1);
+      const oldBest = longestStreak(checkIns);
+      // The days start today, or tomorrow when today is already checked in (that day is already in the current streak).
+      const start = checkIns.includes(today) ? run(today, 2)[1] : today;
+      const days = run(start, need);
+      assert.ok(currentStreak([...checkIns, ...days], days.at(-1)) > oldBest, `${checkIns.length} check-ins, today ${today}`);
+      if (need > 1) {
+        const fewer = days.slice(0, -1);
+        assert.ok(currentStreak([...checkIns, ...fewer], fewer.at(-1)) <= oldBest);
+      }
+    }
   }
 });

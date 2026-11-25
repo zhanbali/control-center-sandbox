@@ -25,6 +25,10 @@ summaryLabel(summary); // "3-day streak · best 12 days · 2-week streak"
 milestoneLabel(5);   // "2 days to your 7-day milestone"
 milestoneLabel(365); // "All milestones reached"
 // nextMilestone(days) from ./src/streak.js gives the number itself: 7, or null after 365.
+
+// Best streak 5 days, current streak 3 days (20-22 Nov), checked in today:
+daysToBeatBest(checkIns, "2026-11-22"); // 3: check in on the next 3 days to reach a 6-day streak
+// With no check-ins it is 1. It is always at least 1. (Import it from ./src/streak.js.)
 ```
 
 ## Dates: the user's local date, frozen at check-in
