@@ -224,6 +224,43 @@ test("weeklyStreak: dates before 1970 use the correct weekday", () => {
   assert.equal(weeklyStreak(c, "1969-12-31", { weekStartsOn: 0 }), 1);
 });
 
+// Each row: [weekStartsOn, today (second day of its week), last 3 days of the previous week, 3 days straddling the week boundary].
+// Generated with Date#getUTCDay as an independent weekday source.
+const WEEK_START_CASES = [
+  [0, "2026-11-23", ["2026-11-19", "2026-11-20", "2026-11-21"], ["2026-11-20", "2026-11-21", "2026-11-22"]],
+  [1, "2026-11-24", ["2026-11-20", "2026-11-21", "2026-11-22"], ["2026-11-21", "2026-11-22", "2026-11-23"]],
+  [2, "2026-11-25", ["2026-11-21", "2026-11-22", "2026-11-23"], ["2026-11-22", "2026-11-23", "2026-11-24"]],
+  [3, "2026-11-26", ["2026-11-22", "2026-11-23", "2026-11-24"], ["2026-11-23", "2026-11-24", "2026-11-25"]],
+  [4, "2026-11-20", ["2026-11-16", "2026-11-17", "2026-11-18"], ["2026-11-17", "2026-11-18", "2026-11-19"]],
+  [5, "2026-11-21", ["2026-11-17", "2026-11-18", "2026-11-19"], ["2026-11-18", "2026-11-19", "2026-11-20"]],
+  [6, "2026-11-22", ["2026-11-18", "2026-11-19", "2026-11-20"], ["2026-11-19", "2026-11-20", "2026-11-21"]],
+  // Well before 1969-12-28, so day numbers are below -4 and the weekday maths sees negative values.
+  [0, "1969-07-14", ["1969-07-10", "1969-07-11", "1969-07-12"], ["1969-07-11", "1969-07-12", "1969-07-13"]],
+  [1, "1969-07-15", ["1969-07-11", "1969-07-12", "1969-07-13"], ["1969-07-12", "1969-07-13", "1969-07-14"]],
+  [2, "1969-07-16", ["1969-07-12", "1969-07-13", "1969-07-14"], ["1969-07-13", "1969-07-14", "1969-07-15"]],
+  [3, "1969-07-17", ["1969-07-13", "1969-07-14", "1969-07-15"], ["1969-07-14", "1969-07-15", "1969-07-16"]],
+  [4, "1969-07-11", ["1969-07-07", "1969-07-08", "1969-07-09"], ["1969-07-08", "1969-07-09", "1969-07-10"]],
+  [5, "1969-07-12", ["1969-07-08", "1969-07-09", "1969-07-10"], ["1969-07-09", "1969-07-10", "1969-07-11"]],
+  [6, "1969-07-13", ["1969-07-09", "1969-07-10", "1969-07-11"], ["1969-07-10", "1969-07-11", "1969-07-12"]],
+];
+
+for (const [weekStartsOn, today, lastWeek, straddle] of WEEK_START_CASES) {
+  test(`weeklyStreak: weekStartsOn ${weekStartsOn} puts the week boundary on the right day (${today})`, () => {
+    assert.equal(weeklyStreak(lastWeek, today, { weekStartsOn }), 1);
+    assert.equal(weeklyStreak(straddle, today, { weekStartsOn }), 0);
+  });
+}
+
+test("weeklyStreak: Wednesday week start, mid-week today", () => {
+  // Week Wed 18 Nov - Tue 24 Nov has 3 days; today Wed 25 Nov starts an unmet week.
+  assert.equal(weeklyStreak(["2026-11-18", "2026-11-19", "2026-11-24"], "2026-11-25", { weekStartsOn: 3 }), 1);
+});
+
+test("weeklyStreak: Tuesday week start before 1969-12-28", () => {
+  // 1969-12-22 is a Monday, so with Tuesday weeks it falls in the previous week: no week has 3 days.
+  assert.equal(weeklyStreak(["1969-12-22", "1969-12-23", "1969-12-24"], "1969-12-24", { weekStartsOn: 2 }), 0);
+});
+
 test("streakSummary returns current, longest and weekly in one call", () => {
   // Week of Mon 09 Nov has 3 days (10-12); week of Mon 16 Nov has 6 days; today is Sun 22 Nov
   const checkIns = ["2026-11-10", "2026-11-11", "2026-11-12", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-20", "2026-11-21", "2026-11-22"];
