@@ -157,6 +157,21 @@ export function streakSummary(checkIns, today) {
   };
 }
 
+/**
+ * How many more check-in days the user needs for their current streak to be strictly longer than their longest
+ * streak, counting today unless today is already checked in (then the days start tomorrow). Always at least 1. Computed as `longestStreak - currentStreak + 1`, so it uses the
+ * same rules as those functions (a streak alive from yesterday counts as current).
+ * @param {string[]} checkIns ISO dates (YYYY-MM-DD), any order, duplicates allowed
+ * @param {string} today ISO date
+ * @returns {number} Check-in days still needed; 1 when the current streak already equals the best
+ * @throws {RangeError} if today or any check-in is not a real YYYY-MM-DD date
+ * @throws {TypeError} if checkIns is not an array
+ */
+export function daysToBeatBest(checkIns, today) {
+  if (!Array.isArray(checkIns)) throw new TypeError("checkIns must be an array of YYYY-MM-DD strings");
+  return longestStreak(checkIns) - currentStreak(checkIns, today) + 1;
+}
+
 const MILESTONES = [3, 7, 14, 30, 60, 100, 365];
 
 /**
